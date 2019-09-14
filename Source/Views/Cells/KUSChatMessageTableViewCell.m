@@ -298,10 +298,11 @@ static const CGFloat kTimestampTopPadding = 4.0;
 - (void)_updateImageForMessage
 {
     BOOL currentUser = KUSChatMessageSentByUser(_chatMessage);
-
+  
+    SDWebImageActivityIndicator* indicator = (currentUser ? SDWebImageActivityIndicator.whiteIndicator : SDWebImageActivityIndicator.grayIndicator);
+  
     [_imageView setContentMode:UIViewContentModeScaleAspectFill];
-    [_imageView sd_setShowActivityIndicatorView:YES];
-    [_imageView sd_setIndicatorStyle:(currentUser ? UIActivityIndicatorViewStyleWhite : UIActivityIndicatorViewStyleGray)];
+    [_imageView setSd_imageIndicator: indicator];
     SDWebImageOptions options = SDWebImageHighPriority | SDWebImageScaleDownLargeImages | SDWebImageRetryFailed;
 
     KUSChatMessage *startingChatMessage = _chatMessage;

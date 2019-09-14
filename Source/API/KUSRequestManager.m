@@ -62,8 +62,8 @@ typedef void (^KUSTrackingTokenCompletion)(NSError *error, NSString *trackingTok
         _urlSession = [NSURLSession sessionWithConfiguration:configuration delegate:nil delegateQueue:operationQueue];
 
         [_userSession.trackingTokenDataSource addListener:self];
-
-        [[SDWebImageDownloader sharedDownloader] setHeadersFilter:[self _sdWebImageHeadersFilter]];
+      
+        [SDWebImageDownloader sharedDownloader].requestModifier = [self requestModifier];
     }
     return self;
 }
@@ -258,32 +258,27 @@ typedef void (^KUSTrackingTokenCompletion)(NSError *error, NSString *trackingTok
     }
 }
 
-- (SDHTTPHeadersDictionary *(^)(NSURL *url, SDHTTPHeadersDictionary *headers))_sdWebImageHeadersFilter
+-(SDWebImageDownloaderRequestModifier *)requestModifier
 {
     __weak KUSRequestManager *weakSelf = self;
-    return ^SDHTTPHeadersDictionary *(NSURL * url, SDHTTPHeadersDictionary *headers) {
-        __strong KUSRequestManager *strongSelf = weakSelf;
-        if (strongSelf == nil) {
-            return headers;
-        }
+    return [SDWebImageDownloaderRequestModifier requestModifierWithBlock:^NSURLRequest * _Nullable(NSURLRequest * _Nonnull request) {
+      __strong KUSRequestManager *strongSelf = weakSelf;
+      if (strongSelf == nil) {
+          return request;
+      }
 
-        // Only attach auth headers to Kustomer requests
-        BOOL isKustomer = [url.absoluteString hasPrefix:self->_baseUrlString];
-        if (isKustomer) {
-            NSMutableDictionary<NSString *, NSString *> *responseHeaders = [(headers ?: @{}) mutableCopy];
-            [responseHeaders addEntriesFromDictionary:strongSelf->_genericHTTPHeaderValues];
-
-            // Tracking token
-            NSString *trackingToken = strongSelf->_userSession.trackingTokenDataSource.currentTrackingToken;
-            if (trackingToken) {
-                [responseHeaders setObject:trackingToken forKey:kKustomerTrackingTokenHeaderKey];
-            }
-
-            return responseHeaders;
-        }
-
-        return headers;
-    };
+      // Only attach auth headers to Kustomer requests
+      BOOL isKustomer = [request.URL.absoluteString hasPrefix:self->_baseUrlString];
+      if (isKustomer) {
+          NSMutableURLRequest *mutableRequest = [request mutableCopy];
+          NSString *trackingToken = strongSelf->_userSession.trackingTokenDataSource.currentTrackingToken;
+          if (trackingToken) {
+              [mutableRequest setValue:trackingToken forHTTPHeaderField:kKustomerTrackingTokenHeaderKey];
+          }
+          return [mutableRequest copy];
+      }
+      return request;
+    }];
 }
 
 #pragma mark - KUSObjectDataSourceListener methods
